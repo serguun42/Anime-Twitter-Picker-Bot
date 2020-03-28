@@ -14,16 +14,7 @@ const
 	COMMANDS = {
 		"about": `Вот как я работаю:
 
-Если твоё сообщение состоит только из одной ссылки на
-• <i>пост в Твиттере (изображения, гифки и видео)</i>
-• <i>иллюстрацию или мангу в Pixiv (изображения)</i>
-• <i>пост в Инстаграме (изображения и видео)</i>
-• <i>пост на Реддите (изображения и гифки)</i>
-• <i>пост на Danbooru (изображения)</i>
-• <i>пост на Gelbooru (изображения)</i>
-• <i>или прямой ссылки на изображение в Твиттере</i>
-
-то вместо твоего сообщения я напишу своё, в котором будут
+Если твоё сообщение состоит только из одной ссылки на пост в одном из поддерживаемых ресурсов, то вместо твоего сообщения я напишу своё, в котором будут
 • <i>все фото в лучшем (оригинальном) качестве</i>
 • <i>описание/название поста</i>
 • <i>ссылка на него</i>
@@ -35,6 +26,19 @@ const
 <b>Чтобы я не обрабатывал твоё сообщения, состоящее только из одной ссылки, поставь перед ссылкой/после неё какой-либо знак или напиши что угодно.</b>
 
 Все вопросы – <a href="https://t.me/${ADMIN_TELEGRAM_DATA.username}">${ADMIN_TELEGRAM_DATA.username}</a>`,
+		"list": `
+• Твит (изображения, гифки и видео)
+• Иллюстрация или манга в Pixiv (изображения)
+• Пост в Instagram (изображения и видео)
+• Пост на Reddit (изображения и гифки)
+• Пост на Danbooru (изображения)
+• Пост на Gelbooru (изображения)
+• Пост на Konachan (изображения)
+• Пост на Yande.re (изображения)
+• Пост на Sankaku Channel (изображения)
+• Пост на Zerochan (изображения)
+• Пост на Anime-Pictures.net (изображения)
+• Прямая ссылка на изображение в Твиттере`,
 		"testcommand": `<pre>Ну и што ты здесь зобылб?</pre>`
 	};
 
@@ -149,7 +153,7 @@ TOB.launch();
 const L = function(arg) {
 	if (DEV) {
 		console.log(...arguments);
-		if (typeof arg == "object") fs.writeFileSync("./errors.json", JSON.stringify(arg, false, "\t"));
+		if (typeof arg == "object") fs.writeFileSync("./out/errors.json", JSON.stringify(arg, false, "\t"));
 	};
 };
 
@@ -243,47 +247,70 @@ const GlobalCheckMessageForLink = (message) => new Promise((resolve, reject) => 
 	if (
 		url.host == "twitter.com" |
 		url.host == "www.twitter.com"
-	) {
+	)
 		return resolve({ status: true, platform: Twitter, url });
-	} else if (
+	else if (
 		url.host == "pbs.twimg.com" |
-		url.hostname == "pbs.twimg.com"
-	) {
+		url.origin == "https://pbs.twimg.com"
+	)
 		return resolve({ status: true, platform: TwitterImg, url });
-	} else if (
+	else if (
 		url.host == "instagram.com" |
 		url.host == "www.instagram.com"
-	) {
+	)
 		return resolve({ status: true, platform: Instagram, url });
-	} else if (
+	else if (
 		url.host == "reddit.com" |
-		url.hostname == "www.reddit.com"
-	) {
+		url.host == "www.reddit.com"
+	)
 		return resolve({ status: true, platform: Reddit, url });
-	} else if (
+	else if (
 		url.host == "pixiv.net" |
 		url.host == "www.pixiv.net"
-	) {
+	)
 		return resolve({ status: true, platform: Pixiv, url });
-	} else if (
+	else if (
 		url.host == "danbooru.donmai.us" |
-		url.hostname == "danbooru.donmai.us" |
 		url.origin == "https://danbooru.donmai.us"
-	) {
+	)
 		return resolve({ status: true, platform: Danbooru, url });
-	} else if (
+	else if (
 		url.host == "gelbooru.com" |
-		url.hostname == "www.gelbooru.com"
-	) {
+		url.host == "www.gelbooru.com"
+	)
 		return resolve({ status: true, platform: Gelbooru, url });
-	} else if (
+	else if (
 		url.host == "konachan.com" |
-		url.hostname == "www.konachan.com"
-	) {
+		url.host == "www.konachan.com"
+	)
 		return resolve({ status: true, platform: Konachan, url });
-	} else {
+	else if (
+		url.host == "yande.re" |
+		url.host == "www.yande.re"
+	)
+		return resolve({ status: true, platform: Yandere, url });
+	else if (
+		url.host == "e-shuushuu.net" |
+		url.host == "www.e-shuushuu.net"
+	)
+		return resolve({ status: true, platform: Eshuushuu, url });
+	else if (
+		url.host == "chan.sankakucomplex.com" |
+		url.origin == "https://chan.sankakucomplex.com"
+	)
+		return resolve({ status: true, platform: Sankaku, url });
+	else if (
+		url.host == "zerochan.net" |
+		url.host == "www.zerochan.net"
+	)
+		return resolve({ status: true, platform: Zerochan, url });
+	else if (
+		url.host == "anime-pictures.net" |
+		url.host == "www.anime-pictures.net"
+	)
+		return resolve({ status: true, platform: AnimePictures, url });
+	else
 		return resolve({ status: false });
-	};
 });
 
 
@@ -331,7 +358,7 @@ const Twitter = (text, ctx, url) => {
 		tweet_mode: "extended"
 	})
 	.then((tweet) => {
-		if (DEV) fs.writeFileSync("./twitter.json", JSON.stringify(tweet, false, "\t"));
+		if (DEV) fs.writeFileSync("./out/twitter.json", JSON.stringify(tweet, false, "\t"));
 
 		const MEDIA = tweet["extended_entities"]["media"];
 
@@ -485,16 +512,16 @@ const Pixiv = (text, ctx, url) => {
 
 
 			let title = post["title"] || post["illustTitle"] || post["description"] || post["illustComment"],
-				caption = `<i>${TGE(title)}</i>\n\nОтправил – ${GetUsername(ctx)}\n<a href="${encodeURI(`https://www.pixiv.net/en/artworks/${pixivID}`)}">Ссылка на пост</a> | <a href="${encodeURI("https://www.pixiv.net/en/users/" + post["userId"])}">@${post["userName"]}</a>`;
+				caption = `<i>${TGE(title)}</i>\n\nОтправил – ${GetUsername(ctx)}\nPixiv | <a href="${encodeURI(`https://www.pixiv.net/en/artworks/${pixivID}`)}">Ссылка на пост</a> | <a href="${encodeURI("https://www.pixiv.net/en/users/" + post["userId"])}">@${post["userName"]}</a>`;
 
 			if (sourcesArr.length > 10)
 				caption += ` ⬅️ Перейди по ссылке: ${sourcesArr.length} ${GetForm(sourcesArr.length, ["иллюстрация", "иллюстрации", "иллюстраций"])} не влезли в сообщение`;
 
 
 			if (sourcesArr.length === 1)
-				caption += `\n<a href="${encodeURI(CONFIG.PIXIV_IMG_VIEWER_SERVICE.replace(/__LINK__/, sourcesArr[0].media))}">Исходник файла</a>`;
+				caption += `\n<a href="${CONFIG.PIXIV_IMG_VIEWER_SERVICE.replace(/__LINK__/, encodeURIComponent(sourcesArr[0].media))}">Исходник файла</a>`;
 			else
-				caption += "\nФайлы: " + sourcesArr.map((s, i) => `<a href="${encodeURI(CONFIG.PIXIV_IMG_VIEWER_SERVICE.replace(/__LINK__/, s.media))}">${i + 1}</a>`).join(", ");
+				caption += "\nФайлы: " + sourcesArr.map((s, i) => `<a href="${CONFIG.PIXIV_IMG_VIEWER_SERVICE.replace(/__LINK__/, encodeURIComponent(s.media))}">${i + 1}</a>`).join(", ");
 
 			sourcesArr[0]["parse_mode"] = "HTML";
 			sourcesArr[0]["caption"] = caption;
@@ -529,7 +556,7 @@ const Reddit = (text, ctx, url) => {
 					.split(/<(script id\=\"data\")>window\.___r\s\=\s/)
 					.pop().split("</script>")[0].replace(/\;/g, "");
 
-			if (DEV) fs.writeFileSync("./reddit.json", redditPage);
+			if (DEV) fs.writeFileSync("./out/reddit.json", redditPage);
 
 			data = JSON.parse(redditPage);
 		} catch (e) {
@@ -550,8 +577,6 @@ const Reddit = (text, ctx, url) => {
 		if (post["media"]) {
 			media = post["media"];
 
-			L({media});
-
 			if (media["type"] === "image") {
 				if (media["content"])
 					source = { media: media["content"], type: "photo" };
@@ -570,7 +595,7 @@ const Reddit = (text, ctx, url) => {
 
 
 		if (!!source.media & !!source.type) {
-			let caption = `<i>${TGE((media["title"] || "").trim())}</i>\n\nОтправил – ${GetUsername(ctx)}\n<a href="${encodeURI(text)}">Ссылка на пост</a> | <a href="${encodeURI("https://www.reddit.com/user/" + post["author"] + "/")}">/u/${post["author"]}</a>\n<a href="${encodeURI(source.media)}">Исходник файла</a>`,
+			let caption = `<i>${TGE((media["title"] || "").trim())}</i>\n\nОтправил – ${GetUsername(ctx)}\nReddit | <a href="${encodeURI(text)}">Ссылка на пост</a> | <a href="${encodeURI("https://www.reddit.com/user/" + post["author"] + "/")}">/u/${post["author"]}</a>\n<a href="${encodeURI(source.media)}">Исходник файла</a>`,
 				callingMethod = (source.type === "photo" ? "replyWithPhoto" : "replyWithAnimation");
 
 			ctx[callingMethod](source.media, {
@@ -604,7 +629,7 @@ const Instagram = (text, ctx, url) => {
 							.split(/<(script type="text\/javascript"|script)>window._sharedData\s+=\s+/)
 							.pop().split("</script>")[0].replace(/\;/g, "");
 
-			if (DEV) fs.writeFileSync("./instagram.json", instagramPage);
+			if (DEV) fs.writeFileSync("./out/instagram.json", instagramPage);
 
 			actualInstaPost = JSON.parse(instagramPage);
 			actualInstaPost = actualInstaPost.entry_data.PostPage[0].graphql.shortcode_media;
@@ -641,7 +666,7 @@ const Instagram = (text, ctx, url) => {
 		if (!sourcesArr.length) return L("No sources in Instagram post");
 
 
-		let caption = `<i>${TGE(title)}</i>\n\nОтправил – ${GetUsername(ctx)}\n<a href="${encodeURI(text)}">Ссылка на пост</a> | <a href="${encodeURI("https://instagram.com/" + actualInstaPost["owner"]["username"] + "/")}">@${actualInstaPost["owner"]["username"]}</a>`;
+		let caption = `<i>${TGE(title)}</i>\n\nОтправил – ${GetUsername(ctx)}\nInstagram | <a href="${encodeURI(text)}">Ссылка на пост</a> | <a href="${encodeURI("https://instagram.com/" + actualInstaPost["owner"]["username"] + "/")}">@${actualInstaPost["owner"]["username"]}</a>`;
 
 		if (sourcesArr.length === 1)
 			caption += `\n<a href="${encodeURI(sourcesArr[0].media)}">Исходник файла</a>`;
@@ -705,7 +730,7 @@ const Danbooru = (text, ctx, url) => {
 		source = "https://danbooru.donmai.us/data/" + sourceUUID + extension;
 
 
-		let caption = `Отправил – ${GetUsername(ctx)}\n<a href="${encodeURI(text)}">Ссылка на пост</a>`;
+		let caption = `Отправил – ${GetUsername(ctx)}\nDanbooru | <a href="${encodeURI(text)}">Ссылка на пост</a>`;
 			author = "";
 
 		try {
@@ -739,7 +764,7 @@ const Danbooru = (text, ctx, url) => {
  * @returns {void}
  */
 const Gelbooru = (text, ctx, url) => {
-	request(text, (e, response, danbooruPage) => {
+	request(text, (e, response, gelbooruPage) => {
 		if (e) return L(e);
 		if (response.statusCode !== 200) return L(`Status code = ${response.statusCode}`);
 
@@ -747,7 +772,7 @@ const Gelbooru = (text, ctx, url) => {
 		let source = "";
 
 		try {
-			source = danbooruPage
+			source = gelbooruPage
 								.split("</head")[0]
 								.match(/<meta\s+(name|property)="og\:image"\s+content="([^"]+)"/i);
 
@@ -758,12 +783,12 @@ const Gelbooru = (text, ctx, url) => {
 
 		if (!source) return L("No Gelbooru source");
 
-		let caption = `Отправил – ${GetUsername(ctx)}\n<a href="${encodeURI(text)}">Ссылка на пост</a>`;
+		let caption = `Отправил – ${GetUsername(ctx)}\nGelbooru | <a href="${encodeURI(text)}">Ссылка на пост</a>`;
 			author = "";
 
 
 		try {
-			author = danbooruPage
+			author = gelbooruPage
 								.split(/<h3>\s*Statistics\s*<\/h3>/i)[1]
 								.match(/<a\s+href="(index.php\?page\=account&amp\;s\=profile&amp;uname=[^"]+)">([^<]+)/i);
 
@@ -802,11 +827,6 @@ const Konachan = (text, ctx, url) => {
 			source = konachanPage
 								.split("<body")[1]
 								.match(/<a(\s+[\w\d\-]+\="([^"]+)")*\s+href="([^"]+)"(\s+[\w\d\-]+\="([^"]+)")*\s+id="highres"(\s+[\w\d\-]+\="([^"]+)")*/i);
-								// .match(/<meta\s+(name|property)="og\:image"\s+content="([^"]+)"/i);
-
-								/* <a class="original-file-changed"
-								href="https://konachan.com/jpeg/8a40d2f709460adf2555493ea77d237c/Konachan.com%20-%20303707%20blush%20bow%20brown_hair%20bunny_ears%20cat_smile%20catgirl%20cropped%20demon%20hoodie%20long_hair%20navel%20original%20pajamas%20petals%20scan%20shorts%20socks%20tail%20wings%20wink.jpg"
-								id="highres">Download larger version (1.38 MB JPG)</a> */
 
 			if (source) source = source[3];
 		} catch (e) {
@@ -815,23 +835,253 @@ const Konachan = (text, ctx, url) => {
 
 		if (!source) return L("No Konachan source");
 
-		L({source});
-
-		let caption = `Отправил – ${GetUsername(ctx)}\n<a href="${encodeURI(text)}">Ссылка на пост</a>`;
+		let caption = `Отправил – ${GetUsername(ctx)}\nKonachan | <a href="${encodeURI(text)}">Ссылка на пост</a>`;
 			author = "";
 
 
 		try {
-			author = danbooruPage
-								.split(/<div id="stats"/i)[1]
-								.match(/<a href="()"/i);
+			author = konachanPage
+								.split('<div id="stats"')[1]
+								.match(/<a href="\/user\/show\/(\d+)">([^<]+)/i);
 
 			if (author && !!author[1] && !!author[2]) {
-				caption += ` | <a href="${encodeURI("https://gelbooru.com/" + author[1].replace(/&amp;/g, "&"))}">@${TGE(author[2])}</a>`;
+				caption += ` | <a href="${encodeURI("https://konachan.com/user/show/" + author[1])}">@${TGE(author[2])}</a>`;
 			};
 		} catch (e) {};
 
 		caption += `\n<a href="${encodeURI(source)}">Исходник файла</a>`;
+
+		ctx.replyWithPhoto(source, {
+			caption,
+			disable_web_page_preview: true,
+			parse_mode: "HTML"
+		})
+			.then(() => telegram.deleteMessage(ctx.chat.id, ctx.message.message_id))
+			.then(L).catch(L);
+	});
+};
+
+/**
+ * @param {String} text
+ * @param {TelegramContext} ctx
+ * @param {URL} url
+ * @returns {void}
+ */
+const Yandere = (text, ctx, url) => {
+	request(text, (e, response, yanderePage) => {
+		if (e) return L(e);
+		if (response.statusCode !== 200) return L(`Status code = ${response.statusCode}`);
+		
+		let source = "";
+
+		try {
+			source = yanderePage
+								.split("<body")[1]
+								.match(/<a\s+class="[^"]+"\s+id="highres"\s+href="([^"]+)"/i);
+
+			if (source) source = source[1];
+		} catch (e) {
+			return L("Error on parsing Yandere", e);
+		};
+
+		if (!source) return L("No Yandere source");
+
+		let caption = `Отправил – ${GetUsername(ctx)}\nYandere | <a href="${encodeURI(text)}">Ссылка на пост</a>`;
+			author = "";
+
+
+
+		try {
+			author = yanderePage
+								.split('<div id="stats"')[1]
+								.match(/<a href="\/user\/show\/(\d+)">([^<]+)/i);
+
+			if (author && !!author[1] && !!author[2]) {
+				caption += ` | <a href="${encodeURI("https://yande.re/user/show/" + author[1])}">@${TGE(author[2])}</a>`;
+			};
+		} catch (e) {};
+
+		caption += `\n<a href="${encodeURI(source)}">Исходник файла</a>`;
+
+		ctx.replyWithPhoto(source, {
+			caption,
+			disable_web_page_preview: true,
+			parse_mode: "HTML"
+		})
+			.then(() => telegram.deleteMessage(ctx.chat.id, ctx.message.message_id))
+			.then(L).catch(L);
+	});
+};
+
+/**
+ * @param {String} text
+ * @param {TelegramContext} ctx
+ * @param {URL} url
+ * @returns {void}
+ */
+const Eshuushuu = (text, ctx, url) => {
+	request(text, (e, response, eshuushuuPage) => {
+		if (e) return L(e);
+		if (response.statusCode !== 200) return L(`Status code = ${response.statusCode}`);
+
+		
+		let source = "";
+
+		try {
+			source = eshuushuuPage
+								.split("<body")[1]
+								.match(/<a\s+class="thumb_image"\s+href="([^"]+)"/i);
+
+			if (source && source[1]) source = "https://e-shuushuu.net/" + source[1];
+		} catch (e) {
+			return L("Error on parsing Eshuushuu", e);
+		};
+
+		if (!source) return L("No Eshuushuu source");
+
+		let caption = `Отправил – ${GetUsername(ctx)}\nEshuushuu | <a href="${encodeURI(text)}">Ссылка на пост</a>\n<a href="${encodeURI(source)}">Исходник файла</a>`;
+
+		ctx.replyWithPhoto(source, {
+			caption,
+			disable_web_page_preview: true,
+			parse_mode: "HTML"
+		})
+			.then(() => telegram.deleteMessage(ctx.chat.id, ctx.message.message_id))
+			.then(L).catch(L);
+	});
+};
+
+/**
+ * @param {String} text
+ * @param {TelegramContext} ctx
+ * @param {URL} url
+ * @returns {void}
+ */
+const Sankaku = (text, ctx, url) => {
+	request(text, (e, response, sankakuPage) => {
+		if (e) return L(e);
+		if (response.statusCode !== 200) return L(`Status code = ${response.statusCode}`);
+		
+		let source = "";
+
+		try {
+			source = sankakuPage
+								.split("<body")[1]
+								.match(/<a\s+href="([^"]+)"\s+id=(")?highres/i);
+
+			if (source && source[1]) source = source[1].replace(/&amp;/g, "&");
+		} catch (e) {
+			return L("Error on parsing Sankaku", e);
+		};
+
+		if (!source) return L("No Sankaku source");
+		if (source.slice(0, 6) !== "https:") source = "https:" + source
+
+		let caption = `Отправил – ${GetUsername(ctx)}\nSankaku | <a href="${encodeURI(text)}">Ссылка на пост</a>\n<a href="${encodeURI(source)}">Исходник файла</a>`;
+
+		ctx.replyWithPhoto(source, {
+			caption,
+			disable_web_page_preview: true,
+			parse_mode: "HTML"
+		})
+			.then(() => telegram.deleteMessage(ctx.chat.id, ctx.message.message_id))
+			.then(L).catch(L);
+	});
+};
+
+/**
+ * @param {String} text
+ * @param {TelegramContext} ctx
+ * @param {URL} url
+ * @returns {void}
+ */
+const Zerochan = (text, ctx, url) => {
+	request(text, (e, response, zerochanPage) => {
+		if (e) return L(e);
+		if (response.statusCode !== 200) return L(`Status code = ${response.statusCode}`);
+
+
+		let source = "";
+
+		try {
+			source = zerochanPage
+								.split("</head")[0]
+								.match(/<meta\s+(name|property)="og\:image"\s+content="([^"]+)"/i);
+
+			if (source) source = source[2];
+
+			if (!source) {
+				source = danbooruPage
+									.split("</head")[0]
+									.match(/<meta\s+(name|property)="twitter\:image"\s+content="([^"]+)"/i);
+
+				if (source) source = source[2];
+			};
+		} catch (e) {
+			return L("Error on parsing Zerochan", e);
+		};
+
+		if (!source) return L("No Zerochan source");
+
+
+		let sourceBasename = source.replace(/\.[\w\d]+$/, ""),
+			basenameMatch = zerochanPage.match(new RegExp(sourceBasename + ".[\\w\\d]+", "gi"));
+
+		if (basenameMatch && basenameMatch.pop) source = basenameMatch.pop();
+
+		let caption = `Отправил – ${GetUsername(ctx)}\nZerochan | <a href="${encodeURI(text)}">Ссылка на пост</a>\n<a href="${encodeURI(source)}">Исходник файла</a>`;
+
+
+
+
+
+		ctx.replyWithPhoto(source, {
+			caption,
+			disable_web_page_preview: true,
+			parse_mode: "HTML"
+		})
+			.then(() => telegram.deleteMessage(ctx.chat.id, ctx.message.message_id))
+			.then(L).catch(L);
+	});
+};
+
+/**
+ * @param {String} text
+ * @param {TelegramContext} ctx
+ * @param {URL} url
+ * @returns {void}
+ */
+const AnimePictures = (text, ctx, url) => {
+	request(text, (e, response, animePicturesPage) => {
+		if (e) return L(e);
+		if (response.statusCode !== 200) return L(`Status code = ${response.statusCode}`);
+
+
+		let source = "";
+
+		try {
+			source = animePicturesPage
+								.split("<body")[1]
+								.match(/<a\s+href="([^"]+)"\s+title="[^"]+"\s+itemprop="contentURL"/i);
+
+			if (source && source[1]) source = source[1];
+		} catch (e) {
+			return L("Error on parsing AnimePictures", e);
+		};
+
+		if (!source) return L("No AnimePictures source");
+
+		try {
+			let imglink = URL.parse(source);
+
+			if (!imglink.host) source = "https://anime-pictures.net" + source;
+		} catch (e) {
+			if (!imglink.host) source = "https://anime-pictures.net" + source;
+			L(e);
+		};
+
+		let caption = `Отправил – ${GetUsername(ctx)}\nAnime-Pictures | <a href="${encodeURI(text)}">Ссылка на пост</a>\n<a href="${encodeURI(source)}">Исходник файла</a>`;
+
 
 		ctx.replyWithPhoto(source, {
 			caption,
