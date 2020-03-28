@@ -1,9 +1,11 @@
 # Anime-Twitter-Picker Bot
 Here is a single file for Node.JS
 You can use whatever version of Node.JS you want, lol
-Use atpb.json for setting tokens. Key *"TELEGRAM_BOT_TOKEN"* is for guess what. So is *"TWITTER_CONSUMER_KEY"* and *"TWITTER_CONSUMER_SECRET"*
+Use `atpb.json` for setting tokens. Key *"TELEGRAM_BOT_TOKEN"* is for guess what. So is *"TWITTER_CONSUMER_KEY"* and *"TWITTER_CONSUMER_SECRET"*.
+You should specify admin's data and chats' data in `atpb.json` also.
+In addition, you can use your own service for viewing pixiv images. (Pixiv requires "Referer" header so you can build your own service which will do all the work)
 
-Here is modules that bot uses (you can install them with npm or yarn or whatever you want):
+Here are modules that `animetwitterpickerbot.js` uses (you can install them with `npm` or `yarn` or whatever you want):
 * Telegraf
 * Twitter-lite
 
