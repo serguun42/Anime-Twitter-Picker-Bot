@@ -6,7 +6,7 @@ const
 	Telegraf = require("telegraf"),
 	Sessions = require("telegraf/session"),
 	Telegram = require("telegraf/telegram"),
-	CONFIG = JSON.parse(fs.readFileSync("./atpb.json")),
+	CONFIG = JSON.parse(fs.readFileSync("./config.json"))["ATPB"],
 	TELEGRAM_BOT_TOKEN = CONFIG.TELEGRAM_BOT_TOKEN,
 	DEV = require("os").platform() === "win32" || process.argv[2] === "DEV",
 	ADMIN_TELEGRAM_DATA = CONFIG.ADMIN_TELEGRAM_DATA,
