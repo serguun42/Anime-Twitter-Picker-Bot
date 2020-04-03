@@ -6,7 +6,7 @@ const
 	Telegraf = require("telegraf"),
 	Sessions = require("telegraf/session"),
 	Telegram = require("telegraf/telegram"),
-	CONFIG = JSON.parse(fs.readFileSync("./config.json"))["ATPB"],
+	CONFIG = JSON.parse(fs.readFileSync("./animetwitterpickerbot.config.json")),
 	TELEGRAM_BOT_TOKEN = CONFIG.TELEGRAM_BOT_TOKEN,
 	DEV = require("os").platform() === "win32" || process.argv[2] === "DEV",
 	ADMIN_TELEGRAM_DATA = CONFIG.ADMIN_TELEGRAM_DATA,
@@ -42,9 +42,21 @@ const
 		"testcommand": `<pre>Ну и што ты здесь зобылб?</pre>`
 	};
 
+
+
+let telegramConnectionData = {}
+
+if (DEV) {
+	const ProxyAgent = require("proxy-agent");
+
+	telegramConnectionData["agent"] = new ProxyAgent(CONFIG.PROXY_URL);
+};
+
+
 const
-	telegram = new Telegram(TELEGRAM_BOT_TOKEN),
-	TOB = new Telegraf(TELEGRAM_BOT_TOKEN);
+	telegram = new Telegram(TELEGRAM_BOT_TOKEN, telegramConnectionData),
+	TOB = new Telegraf(TELEGRAM_BOT_TOKEN, { telegram: telegramConnectionData });
+
 
 /**
  * @typedef {Object} TelegramFromObject
@@ -187,7 +199,7 @@ const GetForm = (iNumber, iForms) => {
 const GetUsername = (ctx) => {
 	if (ctx.from.username)
 		return `<a href="https://t.me/${ctx.from.username}">${TGE(ctx.from.first_name)}${ctx.from.last_name ? " " + TGE(ctx.from.last_name) : ""}</a>`;
-	else if (ctx.from.first_name)
+	else if (ctx.from.last_name)
 		return TGE(ctx.from.first_name + " " + ctx.from.last_name);
 	else
 		return TGE(ctx.from.first_name);
