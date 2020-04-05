@@ -2,7 +2,7 @@
 	"TELEGRAM_BOT_TOKEN": "",
 	"TWITTER_CONSUMER_KEY": "",
 	"TWITTER_CONSUMER_SECRET": "",
-	"PIXIV_IMG_VIEWER_SERVICE": "__LINK__ is being replaced with Pixiv link. Use your service to show Pixiv – it requires Referer header. So you can use 'https://myservice.com/pixivreferer?link=__LINK__' where __LINK__ will be replaced for Pixiv direct link to image.",
+	"CUSTOM_IMG_VIEWER_SERVICE": "__LINK__ заменяется на ссылку поста. __HEADERS__ заменяется на HTTP-заголовок \"Referer\" со значением равным \"http://pixiv.net\" в случае Пиксива и на адрес поста в случае anime.reactor.cc",
 	"ADMIN_TELEGRAM_DATA": {
 		"id": 123456789000000000000,
 		"username": "%USERNAME%"
@@ -23,5 +23,6 @@
 			"name": "OTHER CHAT",
 			"enabled": false
 		}
-	]
+	],
+	"PROXY_URL": "подклю"
 }
