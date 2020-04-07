@@ -24,5 +24,10 @@
 			"enabled": false
 		}
 	],
-	"PROXY_URL": "подклю"
+	"COMMANDS_WHITELIST": [
+		"admin1",
+		"admin2",
+		"admin3"
+	],
+	"PROXY_URL": ""
 }

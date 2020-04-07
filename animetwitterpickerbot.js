@@ -1,18 +1,40 @@
 const
 	URL = require("url"),
 	fs = require("fs"),
+	DEV = require("os").platform() === "win32" || process.argv[2] === "DEV",
+	L = function(arg) {
+		if (DEV) {
+			console.log(...arguments);
+			if (typeof arg == "object") fs.writeFileSync("./out/errors.json", JSON.stringify(arg, false, "\t"));
+		};
+	},
 	NodeFetch = require("node-fetch"),
 	TwitterModule = require("twitter-lite"),
 	Telegraf = require("telegraf"),
 	Sessions = require("telegraf/session"),
 	Telegram = require("telegraf/telegram"),
 	Markup = require("telegraf/markup"),
-	KhaleesiModule = require("./animetwitterpickerbot.khaleesi.js"),
+	KhaleesiModule = require("./animetwitterpickerbot.khaleesi.js");
+
+/**
+ * @typedef {Object} ConfigFile
+ * @property {String} TELEGRAM_BOT_TOKEN
+ * @property {String} TWITTER_CONSUMER_KEY
+ * @property {String} TWITTER_CONSUMER_SECRET
+ * @property {String} CUSTOM_IMG_VIEWER_SERVICE
+ * @property {{id: number, username: string}} ADMIN_TELEGRAM_DATA
+ * @property {Array.<{id: number, name?: string, enabled: boolean}>} CHATS_LIST
+ * @property {String[]} COMMANDS_WHITELIST
+ * @property {String} PROXY_URL
+ */
+/** @type {ConfigFile} */
+const
 	CONFIG = JSON.parse(fs.readFileSync("./animetwitterpickerbot.config.json")),
 	TELEGRAM_BOT_TOKEN = CONFIG.TELEGRAM_BOT_TOKEN,
-	DEV = require("os").platform() === "win32" || process.argv[2] === "DEV",
 	ADMIN_TELEGRAM_DATA = CONFIG.ADMIN_TELEGRAM_DATA,
 	CHATS_LIST = CONFIG.CHATS_LIST,
+	COMMANDS_WHITELIST = CONFIG.COMMANDS_WHITELIST,
+	COMMANDS_USAGE = new Object(),
 	COMMANDS = {
 		"about": `Вот как я работаю:
 
@@ -47,9 +69,9 @@ const
 	};
 
 
-
 let telegramConnectionData = {},
 	fetchConnectionAdditionalOptions = {};
+
 
 if (DEV) {
 	const ProxyAgent = require("proxy-agent");
@@ -62,6 +84,86 @@ if (DEV) {
 const
 	telegram = new Telegram(TELEGRAM_BOT_TOKEN, telegramConnectionData),
 	TOB = new Telegraf(TELEGRAM_BOT_TOKEN, { telegram: telegramConnectionData });
+
+
+
+/**
+ * @param {String} iQuery
+ * @returns {Object.<string, (string|true)>}
+ */
+const GlobalParseQuery = iQuery => {
+	if (!iQuery) return {};
+
+	let cList = new Object();
+		iQuery = iQuery.toString().split("&");
+
+	iQuery.forEach((item)=>{ cList[item.split("=")[0]] = (item.split("=")[1] || true); });
+
+	return cList;
+};
+
+const GetForm = (iNumber, iForms) => {
+	iNumber = iNumber.toString();
+
+	if (iNumber.slice(-2)[0] == "1" & iNumber.length > 1) return iForms[2];
+	if (iNumber.slice(-1) == "1") return iForms[0];
+	else if (/2|3|4/g.test(iNumber.slice(-1))) return iForms[1];
+	else if (/5|6|7|8|9|0/g.test(iNumber.slice(-1))) return iForms[2];
+};
+
+const TGE = iStr => {
+	if (!iStr) return "";
+	
+	if (typeof iStr === "string")
+		return iStr
+			.replace(/\&/g, "&amp;")
+			.replace(/\</g, "&lt;")
+			.replace(/\>/g, "&gt;");
+	else
+		return TGE(iStr.toString());
+};
+
+/**
+ * @param {TelegramContext} ctx
+ */
+const GetUsername = (ctx) => {
+	if (ctx.from.username)
+		return `<a href="https://t.me/${ctx.from.username}">${TGE(ctx.from.first_name)}${ctx.from.last_name ? " " + TGE(ctx.from.last_name) : ""}</a>`;
+	else if (ctx.from.last_name)
+		return TGE(ctx.from.first_name + " " + ctx.from.last_name);
+	else
+		return TGE(ctx.from.first_name);
+};
+
+/**
+ * @param {String} message
+ */
+const TelegramSendToAdmin = (message) => {
+	if (!message) return;
+
+	telegram.sendMessage(ADMIN_TELEGRAM_DATA.id, message, {
+		parse_mode: "HTML",
+		disable_notification: true
+	}).then(() => {}, (e) => console.error(e));
+};
+
+TelegramSendToAdmin(`Anime-Twitter-Picker Bot have been spawned at ${new Date().toISOString()} <i>(ISO 8601, UTC)</i>`);
+
+const TwitterUser = new TwitterModule({
+	consumer_key: CONFIG.TWITTER_CONSUMER_KEY, // from Twitter
+	consumer_secret: CONFIG.TWITTER_CONSUMER_SECRET, // from Twitter
+});
+
+let TwitterApp = new TwitterModule({
+	bearer_token: "SOME BAD TOKEN (IT DOES NOT WORK)"
+});
+
+TwitterUser.getBearerToken().then((response) => {
+	TwitterApp = new TwitterModule({
+		bearer_token: response.access_token
+	});
+});
+
 
 
 /**
@@ -122,17 +224,16 @@ const DefaultHandler = (ctx) => {
 	const {chat, from} = ctx;
 
 
-
 	if (
 		(chat && chat["type"] === "private") &&
 		(from && from["id"] === ADMIN_TELEGRAM_DATA.id && from["username"] === ADMIN_TELEGRAM_DATA.username)
 	) {
-		return ctx.reply("```\n" + JSON.stringify({
+		return ctx.reply(`<pre><code class="language-json">${JSON.stringify({
 			status: "Everything is OK",
 			message: "You're ADMIN, writing in private",
 			from, chat
-		}, false, "    ") + "\n```", {
-			parse_mode: "MarkdownV2"
+		}, false, "    ")}</code></pre>`, {
+			parse_mode: "HTML"
 		});
 	};
 
@@ -149,9 +250,15 @@ const DefaultHandler = (ctx) => {
 
 
 
-		let commandMatch = text.match(/^\/([\w]+)\@animetwitterpickerbot$/i);
+		let commandMatch = text.match(/^\/([\w]+)(\@animetwitterpickerbot)?$/i);
 
 		if (commandMatch && commandMatch[1]) {
+			telegram.deleteMessage(chat.id, message.message_id).then(L).catch(L);
+			if (!CheckForCommandAvailability(from)) {
+				return false;
+			};
+
+
 			L({commandMatch});
 
 			if (typeof COMMANDS[commandMatch[1]] == "string")
@@ -161,6 +268,22 @@ const DefaultHandler = (ctx) => {
 				}).then(L).catch(L);
 			else if (typeof COMMANDS[commandMatch[1]] == "function")
 				return COMMANDS[commandMatch[1]](ctx);
+		};
+
+
+
+		if (/жаль([\.\?\!…]*)$/i.test(text.trim())) {
+			if (CheckForCommandAvailability(from)) {
+				if (Math.random() < 0.5)
+					return ctx.reply("<i>…как Орлов, порхай как бабочка!</i>", {
+						parse_mode: "HTML",
+						reply_to_message_id: message.message_id
+					}).then(L).catch(L);
+				else
+					return ctx.replyWithSticker("CAACAgIAAx0CU5r_5QACCFlejL-ACp0b5UFZppv4rFVWZ9lZGwAChQYAAiMhBQABqCwuoKvunScYBA", {
+						reply_to_message_id: message.message_id
+					}).then(L).catch(L);
+			};
 		};
 
 
@@ -180,75 +303,6 @@ const DefaultHandler = (ctx) => {
 TOB.use(Sessions());
 TOB.on("text", DefaultHandler);
 TOB.launch();
-
-const L = function(arg) {
-	if (DEV) {
-		console.log(...arguments);
-		if (typeof arg == "object") fs.writeFileSync("./out/errors.json", JSON.stringify(arg, false, "\t"));
-	};
-};
-
-/**
- * @param {String} iQuery
- * @returns {Object.<string, (string|true)>}
- */
-const GlobalParseQuery = iQuery => {
-	if (!iQuery) return {};
-
-	let cList = new Object();
-		iQuery = iQuery.toString().split("&");
-
-	iQuery.forEach((item)=>{ cList[item.split("=")[0]] = (item.split("=")[1] || true); });
-
-	return cList;
-};
-
-const GetForm = (iNumber, iForms) => {
-	iNumber = iNumber.toString();
-
-	if (iNumber.slice(-2)[0] == "1" & iNumber.length > 1) return iForms[2];
-	if (iNumber.slice(-1) == "1") return iForms[0];
-	else if (/2|3|4/g.test(iNumber.slice(-1))) return iForms[1];
-	else if (/5|6|7|8|9|0/g.test(iNumber.slice(-1))) return iForms[2];
-};
-
-/**
- * @param {TelegramContext} ctx
- */
-const GetUsername = (ctx) => {
-	if (ctx.from.username)
-		return `<a href="https://t.me/${ctx.from.username}">${TGE(ctx.from.first_name)}${ctx.from.last_name ? " " + TGE(ctx.from.last_name) : ""}</a>`;
-	else if (ctx.from.last_name)
-		return TGE(ctx.from.first_name + " " + ctx.from.last_name);
-	else
-		return TGE(ctx.from.first_name);
-};
-
-const TGE = iStr => {
-	if (!iStr) return "";
-	
-	if (typeof iStr === "string")
-		return iStr
-			.replace(/\&/g, "&amp;")
-			.replace(/\</g, "&lt;")
-			.replace(/\>/g, "&gt;");
-	else
-		return TGE(iStr.toString());
-};
-
-/**
- * @param {String} message
- */
-const TelegramSendToAdmin = (message) => {
-	if (!message) return;
-
-	telegram.sendMessage(ADMIN_TELEGRAM_DATA.id, message, {
-		parse_mode: "HTML",
-		disable_notification: true
-	}).then(() => {}, (e) => console.error(e));
-};
-
-TelegramSendToAdmin(`Anime-Twitter-Picker Bot have been spawned at ${new Date().toISOString()} <i>(ISO 8601, UTC)</i>`);
 
 
 
@@ -280,6 +334,26 @@ const Khaleesi = (ctx) => {
 	}).then(L).catch(L);
 };
 
+/**
+ * @param {TelegramFromObject} from
+ * @returns {Boolean}
+ */
+const CheckForCommandAvailability = (from) => {
+	let pass = false;
+	if (from.username && COMMANDS_WHITELIST.includes(from.username))
+		pass = true;
+	else {
+		let lastTimeCalled = COMMANDS_USAGE[from.id];
+			COMMANDS_USAGE[from.id] = Date.now();
+
+		if (!lastTimeCalled || typeof lastTimeCalled == "undefined")
+			pass = true;
+		else if ((Date.now() - lastTimeCalled) > 15 * 60 * 1e3)
+			pass = true;
+	};
+
+	return pass;
+};
 
 let currentSessionStamp = new Number();
 
@@ -289,10 +363,6 @@ let currentSessionStamp = new Number();
 const GlobalSetLikeButton = () => {
 	return Markup.callbackButton("👍", `LIKE_${++currentSessionStamp}_${Date.now()}`);
 };
-
-
-
-
 
 TOB.action(/^LIKE_(\d+_\d+)/, /** @param {TelegramContext} ctx */ (ctx) => {
 	const {update} = ctx;
@@ -426,25 +496,6 @@ const GlobalCheckMessageForLink = (message) => new Promise((resolve, reject) => 
 		return resolve({ status: true, platform: Joyreactor, url });
 	else
 		return resolve({ status: false });
-});
-
-
-
-
-
-const TwitterUser = new TwitterModule({
-	consumer_key: CONFIG.TWITTER_CONSUMER_KEY, // from Twitter
-	consumer_secret: CONFIG.TWITTER_CONSUMER_SECRET, // from Twitter
-});
-
-let TwitterApp = new TwitterModule({
-	bearer_token: "SOME BAD TOKEN (IT DOES NOT WORK)"
-});
-
-TwitterUser.getBearerToken().then((response) => {
-	TwitterApp = new TwitterModule({
-		bearer_token: response.access_token
-	});
 });
 
 /**
@@ -643,37 +694,54 @@ const Pixiv = (text, ctx, url) => {
 
 		const post = data["illust"][Object.keys(data["illust"])[0]];
 
-		let sourcesArr = new Array(post["pageCount"]).fill(true).map((v, i) => {
-			let initFilename = post["urls"]["original"],
-				initBasename = initFilename.replace(/\d+\.([\w\d]+)$/i, ""),
-				initFiletype = initFilename.match(/\.([\w\d]+)$/i);
+		let sourcesAmount = post["pageCount"],
+			sourcesOrig = new Array(),
+			sourcesForTG = new Array();
 
-			if (initFiletype && initFiletype[1])
-				initFiletype = initFiletype[1];
+
+		for (let i = 0; i < sourcesAmount; i++) {
+			let origFilename = post["urls"]["original"],
+				origBasename = origFilename.replace(/\d+\.([\w\d]+)$/i, ""),
+				origFiletype = origFilename.match(/\.([\w\d]+)$/i);
+
+			if (origFiletype && origFiletype[1])
+				origFiletype = origFiletype[1];
 			else
-				initFiletype = "png";
+				origFiletype = "png";
 
-			return {
+			sourcesOrig.push({
 				type: "photo",
-				media: encodeURI(initBasename + i + "." + initFiletype)
-			};
-		});
+				media: encodeURI(origBasename + i + "." + origFiletype)
+			});
+
+
+
+			let masterFilename = post["urls"]["regular"];
+
+			sourcesForTG.push({
+				type: "photo",
+				media: encodeURI(masterFilename.replace(/\d+(_master\d+\.[\w\d+]$)/i), i + "$1")
+			});
+		};
+
+
+
 
 
 		let title = post["title"] || post["illustTitle"] || post["description"] || post["illustComment"],
 			caption = `<i>${TGE(title)}</i>\n\nОтправил – ${GetUsername(ctx)}`;
 
-		if (sourcesArr.length > 10)
-			caption += ` ⬅️ Перейди по ссылке: ${sourcesArr.length} ${GetForm(sourcesArr.length, ["иллюстрация", "иллюстрации", "иллюстраций"])} не влезли в сообщение`;
+		if (sourcesAmount > 10)
+			caption += ` ⬅️ Перейди по ссылке: ${sourcesAmount} ${GetForm(sourcesAmount, ["иллюстрация", "иллюстрации", "иллюстраций"])} не влезли в сообщение`;
 
 
-		if (sourcesArr.length === 1)
-			caption += `\n<a href="${CONFIG.CUSTOM_IMG_VIEWER_SERVICE.replace(/__LINK__/, encodeURIComponent(sourcesArr[0].media)).replace(/__HEADERS__/, encodeURIComponent(JSON.stringify({Referer: "http://www.pixiv.net/"})))}">Исходник файла</a>`;
+		if (sourcesAmount === 1)
+			caption += `\n<a href="${CONFIG.CUSTOM_IMG_VIEWER_SERVICE.replace(/__LINK__/, encodeURIComponent(sourcesOrig[0].media)).replace(/__HEADERS__/, encodeURIComponent(JSON.stringify({Referer: "http://www.pixiv.net/"})))}">Исходник файла</a>`;
 		else
-			caption += "\nФайлы: " + sourcesArr.map((s, i) => `<a href="${CONFIG.CUSTOM_IMG_VIEWER_SERVICE.replace(/__LINK__/, encodeURIComponent(s.media)).replace(/__HEADERS__/, encodeURIComponent(JSON.stringify({Referer: "http://www.pixiv.net/"})))}">${i + 1}</a>`).join(", ");
+			caption += "\nФайлы: " + sourcesOrig.map((s, i) => `<a href="${CONFIG.CUSTOM_IMG_VIEWER_SERVICE.replace(/__LINK__/, encodeURIComponent(s.media)).replace(/__HEADERS__/, encodeURIComponent(JSON.stringify({Referer: "http://www.pixiv.net/"})))}">${i + 1}</a>`).join(", ");
 
 
-		ctx.replyWithMediaGroup(sourcesArr.slice(0, 10))
+		ctx.replyWithMediaGroup(sourcesForTG.slice(0, 10))
 			.then(/** @param {TelegramMessageObject} sentMessage */ (sentMessage) => {
 				L(sentMessage);
 
@@ -690,12 +758,7 @@ const Pixiv = (text, ctx, url) => {
 
 				return telegram.deleteMessage(ctx.chat.id, ctx.message.message_id);
 			})
-			.then(L).catch((e) => {
-				L(e);
-				ctx.reply(`<i>Не смог загрузить. Telegram не может взять этот файл у Pixiv ¯\\_(ツ)_/¯</i>`, {
-					parse_mode: "HTML"
-				}).then(L).catch(L);
-			});
+			.then(L).catch(L);
 	}).catch(L);
 };
 
